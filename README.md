@@ -1,14 +1,18 @@
 # REPU Market
 
-Have lunch with Luke.
+Have lunch with Luke. Or use *$LUKE* to put him to work!
 
-## Outsourcing
+## REPU-niverse
 
-- OutSouringFactory.sol
-- OutSouring.sol
+![repu_dapps](readme/repu_dapps.png)
 
 # How to Deploy
 
 ```
 $ npx hardhat run scripts/deploy.js
 ```
+
+## Contracts
+
+- OutSouringFactory.sol
+- OutSouring.sol
