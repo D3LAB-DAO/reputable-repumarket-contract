@@ -5,7 +5,7 @@
 
 
 
-### `constructor(address rToken_)` (public)
+### `initialize(address rToken_)` (external)
 
 
 
@@ -17,37 +17,37 @@
 
 
 
-### `allRequests() → struct Outsourcing.Request[] requests` (public)
+### `allRequests() → struct Outsourcing.Request[] requests_` (public)
 
 
 
 
 
-### `_filter(uint8 state_) → struct Outsourcing.Request[] requests` (internal)
+### `_filter(enum Outsourcing.TaskState state_) → struct Outsourcing.Request[] requests_` (internal)
 
 
 
 
 
-### `askedRequests() → struct Outsourcing.Request[] requests` (public)
+### `askedRequests() → struct Outsourcing.Request[] requests_` (public)
 
 
 
 
 
-### `cancledRequests() → struct Outsourcing.Request[] requests` (public)
+### `cancledRequests() → struct Outsourcing.Request[] requests_` (public)
 
 
 
 
 
-### `acceptedRequests() → struct Outsourcing.Request[] requests` (public)
+### `acceptedRequests() → struct Outsourcing.Request[] requests_` (public)
 
 
 
 
 
-### `rejectedRequests() → struct Outsourcing.Request[] requests` (public)
+### `rejectedRequests() → struct Outsourcing.Request[] requests_` (public)
 
 
 
@@ -84,25 +84,25 @@ Reject the `id_` request.
 
 
 
-### `AskRequest(address who, uint256 amount, uint256 id)`
+### `AskRequest(address who, uint256 amount, uint256 tid)`
 
 
 
 
 
-### `CancleRequest(address who, uint256 amount, uint256 id)`
+### `CancleRequest(address who, uint256 amount, uint256 tid)`
 
 
 
 
 
-### `AcceptRequest(address who, uint256 amount, uint256 id)`
+### `AcceptRequest(address who, uint256 amount, uint256 tid)`
 
 
 
 
 
-### `RejectRequest(address who, uint256 amount, uint256 id)`
+### `RejectRequest(address who, uint256 amount, uint256 tid)`
 
 
 
