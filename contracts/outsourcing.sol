@@ -10,83 +10,114 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 contract Outsourcing is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
+    event AskRequest(address indexed who, uint256 amount, uint256 indexed tid);
+    event CancleRequest(
+        address indexed who,
+        uint256 amount,
+        uint256 indexed tid
+    );
+    event AcceptRequest(
+        address indexed who,
+        uint256 amount,
+        uint256 indexed tid
+    );
+    event RejectRequest(
+        address indexed who,
+        uint256 amount,
+        uint256 indexed tid
+    );
+
     IERC20 public rToken;
 
+    /// @notice Possible states that a task may be in
+    enum TaskState {
+        Asked,
+        Cancled,
+        Accepted,
+        Rejected
+    }
+
     struct Request {
+        TaskState state;
         uint256 amount;
         address who;
-        uint8 state; // none=0, ask, cancle, accept, reject
-        // uint88 extra;
+        // uint96 extra;
     }
-    Request[] internal _requests;
 
-    event AskRequest(address who, uint256 amount, uint256 indexed id);
-    event CancleRequest(address who, uint256 amount, uint256 indexed id);
-    event AcceptRequest(address who, uint256 amount, uint256 indexed id);
-    event RejectRequest(address who, uint256 amount, uint256 indexed id);
+    Request[] public requests;
+
+    address public factory;
 
     //==================== Initialization ====================//
 
-    constructor(address rToken_) {
-        // require(rToken_.owner() == _msgSender(), "Outsourcing: INVALID_OWNER");
+    constructor() {
+        factory = msg.sender;
+    }
 
+    // called once by the factory at time of deployment
+    function initialize(address rToken_) external {
+        require(msg.sender == factory, "Outsourcing::initialize: FORBIDDEN"); // sufficient check
         rToken = IERC20(rToken_);
     }
 
     //==================== View ====================//
 
     function requestsLength() public view returns (uint256) {
-        return _requests.length;
+        return requests.length;
     }
 
-    function allRequests() public view returns (Request[] memory requests) {
-        return _requests;
+    function allRequests() public view returns (Request[] memory requests_) {
+        return requests;
     }
 
-    function _filter(uint8 state_)
+    function _filter(TaskState state_)
         internal
         view
-        returns (Request[] memory requests)
+        returns (Request[] memory requests_)
     {
         uint256 len;
-        for (uint256 i = 0; i < _requests.length; i++) {
-            if (_requests[i].state == state_) {
+        for (uint256 i = 0; i < requests.length; i++) {
+            if (requests[i].state == state_) {
                 unchecked {
                     len += 1;
                 }
             }
         }
-        requests = new Request[](len);
+        requests_ = new Request[](len);
         uint256 j;
-        for (uint256 i = 0; i < _requests.length; i++) {
-            if (_requests[i].state == state_) {
-                requests[j++] = _requests[i];
+        for (uint256 i = 0; i < requests.length; i++) {
+            if (requests[i].state == state_) {
+                requests_[j++] = requests[i];
             }
         }
     }
 
-    function askedRequests() public view returns (Request[] memory requests) {
-        return _filter(1); // ask
+    function askedRequests() public view returns (Request[] memory requests_) {
+        return _filter(TaskState.Asked); // ask
     }
 
-    function cancledRequests() public view returns (Request[] memory requests) {
-        return _filter(2); // cancle
+    function cancledRequests()
+        public
+        view
+        returns (Request[] memory requests_)
+    {
+        return _filter(TaskState.Cancled); // cancle
     }
 
     function acceptedRequests()
         public
         view
-        returns (Request[] memory requests)
+        returns (Request[] memory requests_)
     {
-        return _filter(3); // accept
+        return _filter(TaskState.Accepted); // accept
     }
 
     function rejectedRequests()
         public
         view
-        returns (Request[] memory requests)
+        returns (Request[] memory requests_)
     {
-        return _filter(4); // reject
+        return _filter(TaskState.Rejected); // reject
     }
 
     //==================== Methods ====================//
@@ -97,16 +128,16 @@ contract Outsourcing is Ownable, ReentrancyGuard {
     function ask(uint256 amount_) public {
         address msgSender = _msgSender();
 
-        _requests.push(
+        requests.push(
             Request({
                 amount: amount_,
                 who: msgSender,
-                state: 1 // ask
+                state: TaskState.Asked // ask
             })
         );
 
         rToken.transferFrom(msgSender, address(this), amount_);
-        emit AskRequest(msgSender, amount_, _requests.length);
+        emit AskRequest(msgSender, amount_, requests.length);
     }
 
     /**
@@ -114,11 +145,20 @@ contract Outsourcing is Ownable, ReentrancyGuard {
      */
     function cancle(uint256 id_) public nonReentrant {
         address msgSender = _msgSender();
+        require(
+            msgSender == owner() || msgSender == requests[id_].who,
+            "Outsourcing::cancle: must be called from owner of task giver"
+        );
 
-        _requests[id_].state = 2; // cancle
-        uint256 amount_ = _requests[id_].amount;
+        require(
+            requests[id_].state == TaskState.Asked,
+            "Outsourcing::cancle: state of task must be Asked"
+        );
+        requests[id_].state = TaskState.Cancled; // cancle
+        address who_ = requests[id_].who;
+        uint256 amount_ = requests[id_].amount;
 
-        rToken.transfer(msgSender, amount_);
+        rToken.transfer(who_, amount_);
         emit CancleRequest(msgSender, amount_, id_);
     }
 
@@ -128,26 +168,33 @@ contract Outsourcing is Ownable, ReentrancyGuard {
     function accept(uint256 id_) public onlyOwner nonReentrant {
         address msgSender = _msgSender(); // owner
 
-        _requests[id_].state = 3; // accept
-        address who_ = _requests[id_].who;
-        uint256 amount_ = _requests[id_].amount;
+        require(
+            requests[id_].state == TaskState.Asked,
+            "Outsourcing::cancle: state of task must be Asked"
+        );
+        requests[id_].state = TaskState.Accepted; // accept
+        uint256 amount_ = requests[id_].amount;
 
         rToken.transfer(msgSender, amount_);
-        emit AcceptRequest(who_, amount_, id_);
+        emit AcceptRequest(msgSender, amount_, id_);
     }
 
     /**
      * @notice Reject the `id_` request.
      */
     function reject(uint256 id_) public onlyOwner nonReentrant {
-        // address msgSender = _msgSender(); // owner
+        address msgSender = _msgSender(); // owner
 
-        _requests[id_].state = 4; // reject
-        address who_ = _requests[id_].who;
-        uint256 amount_ = _requests[id_].amount;
+        require(
+            requests[id_].state == TaskState.Asked,
+            "Outsourcing::cancle: state of task must be Asked"
+        );
+        requests[id_].state = TaskState.Rejected; // reject
+        address who_ = requests[id_].who;
+        uint256 amount_ = requests[id_].amount;
 
         rToken.transfer(who_, amount_);
-        emit RejectRequest(who_, amount_, id_);
+        emit RejectRequest(msgSender, amount_, id_);
     }
 
     //==================== Owner ====================//
